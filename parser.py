@@ -8,6 +8,12 @@ from datetime import datetime
 from browser import Browser
 
 
+def get_ports(name_file='ports'):  # получает список поротов для proxy
+    with open(name_file, 'r', encoding='utf-8') as file:
+        ports = file.readlines()
+    return list(map(lambda p: tuple(map(lambda i: int(i), (p.split()))), ports))
+
+
 def check_captcha_google(driver):  # Проверяет не подсовывает ли google капчу
     try:
         driver.find_element_by_id("captcha-form")
@@ -28,14 +34,16 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):  # Прове�
     if check_captcha_google(driver):  # Проверяем не подсовывает ли google капчу
         return None, None
     page = driver.find_element(By.XPATH, "//*[@id='search']")  # page = driver.find_element_by_id("search")
+    time.sleep(2)
     results = page.find_elements(By.XPATH, ".//div[@class='g']")
+    if len(results) < 7:
+        time.sleep(8)
+        results = page.find_elements(By.XPATH, ".//div[@class='g']")
     for i, result in enumerate(results):
-        try:  # xpath_str = "[contains(text(),'{}')]".format(cite_name)
-            find_cite = result.find_element_by_xpath('.//cite')
-        except common.exceptions.NoSuchElementException:
-            continue
-        if req_i.site_promoted in find_cite.text:
-            return namber + 1, find_cite.text
+        links = result.find_elements(By.XPATH, ".//a").get_attribute('href')
+        for link in links:
+            if req_i.site_promoted in link:
+                return namber + 1, link
         else:
             namber += 1
     namber_page += 1
@@ -57,10 +65,10 @@ def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):  # Прове�
         try:
             r.find_element(By.XPATH, ".//div[contains(@class, 'label') and text()='реклама']")  # проверка рекламы
         except common.exceptions.NoSuchElementException:  # Значит не реклама, продолжаем
-            find_cite = r.find_element(By.XPATH, ".//a")
-            if req_i.site_promoted in find_cite.get_attribute("href"):
-                return namber + 1, find_cite.get_attribute("href")  # возвращаем номер и найденую ссылку
-            else:
+            find_cite = r.find_element(By.XPATH, ".//a").get_attribute('href')
+            if req_i.site_promoted in find_cite:
+                return namber + 1, find_cite  # возвращаем номер и найденую ссылку
+            elif 'yandex' not in find_cite:
                 namber += 1
         else:
             continue
@@ -143,6 +151,17 @@ def run_scraper(ports, reqs, requests_google, requests_yandex):
     return 'поток с поротоm {} закончил работу'.format(ports[0])
 
 
+def pool_thread(ports, reqs, requests_google, requests_yandex):  # запускает парсинг в несколько потоков
+    pool = []
+    for port in ports:
+        stream = threading.Thread(target=run_scraper, args=(port, reqs, requests_google, requests_yandex))
+        pool.append(stream)
+    for stream in pool:
+        stream.start()
+    for stream in pool:
+        stream.join()
+
+
 if __name__ == '__main__':
     read_file_name = 'list_requests'  # read_file_name = input('filename: ')
     if 'json' in (read_file_name):
@@ -154,18 +173,23 @@ if __name__ == '__main__':
     requests_yandex = requests_google.copy()  # список id не сделаный запросов в яндекс
     time_now = datetime.now(tz=None)
     print("time start {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
-    stream1 = threading.Thread(target=run_scraper, args=((9050, 9051), reqs, requests_google, requests_yandex))
-    stream2 = threading.Thread(target=run_scraper, args=((9060, 9061), reqs, requests_google, requests_yandex))
-    stream3 = threading.Thread(target=run_scraper, args=((9062, 9063), reqs, requests_google, requests_yandex))
-    stream4 = threading.Thread(target=run_scraper, args=((9065, 9066), reqs, requests_google, requests_yandex))
-    stream1.start()
-    stream2.start()
-    stream3.start()
-    stream4.start()
-    stream1.join()
-    stream2.join()
-    stream3.join()
-    stream4.join()
+    ports = get_ports()  # получаем список портов
+    pool_thread(ports, reqs, requests_google, requests_yandex)
+
+    # stream1 = threading.Thread(target=run_scraper, args=((9050, 9051), reqs, requests_google, requests_yandex))
+    # stream2 = threading.Thread(target=run_scraper, args=((9060, 9061), reqs, requests_google, requests_yandex))
+    # stream3 = threading.Thread(target=run_scraper, args=((9062, 9063), reqs, requests_google, requests_yandex))
+    # stream4 = threading.Thread(target=run_scraper, args=((9065, 9066), reqs, requests_google, requests_yandex))
+    # stream1.start()
+    # stream2.start()
+    # stream3.start()
+    # stream4.start()
+    # stream1.join()
+    # stream2.join()
+    # stream3.join()
+    # stream4.join()
     Req.create_json(reqs)
     time_now = datetime.now(tz=None)
     print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
+    for r in reqs:
+        print('id {} запрос "{}" позиция в гугле {} позиция в яндексе {}'.format(r.id, r.value_req, r.position_google, r.position_yandex))

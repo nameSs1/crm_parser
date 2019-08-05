@@ -87,7 +87,3 @@ class Req():
             if self.position_yandex is None:
                 self.position_yandex = another.position_yandex
                 self.url_result_yandex = another.url_result_yandex
-
-
-
-
