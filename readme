@@ -1,0 +1,25 @@
+1. установка Selenium 
+    pip3 install selenium
+
+2. установка драйвера geckodriver для Firefox Selenium 
+    2.1 скачать с гита  по ссылке:
+    https://github.com/mozilla/geckodriver/releases/download/v0.24.0/geckodriver-v0.24.0-linux64.tar.gz
+    2.2 распоковать и запомнить куда распоковал (/home/sergey/PycharmProjects/crm_parser)
+    2.3 дать файлу geckodriver нужные права на выполнения
+        cd /путь/до/драйвера/ (cd /home/sergey/PycharmProjects/crm_parser)
+        sudo chmod +x geckodriver
+
+3. для перезагрузки сети Tor, разрешить пользователю выполнять команду sudo service tor restart без запроса пароля:
+    sudo visudo (редактирование фала /etc/sudoers)
+    строку: имя_пользователя ALL=(ALL) ALL исправить на
+    имя_пользователя ALL=(ALL) NOPASSWD: /usr/sbin/service /usr/sbin/tor
+
+
+4. для запуска нескольких сетей tor одновременно.
+    4.1 отредактрировать файл /etc/tor/torrc
+        раскоментировать SocksPort 9050 -- используемый порт
+                         ControlPort 9051 -- порт управления tor
+                         DataDirectory /var/lib/tor
+    4.2 создать копии этого файла для других экземпляров tor.
+    изменить порты и директорию для каждого экзепляра сделать уникальными
+    4.3 для запуска зайти в /etc/tor  и выполнить sudo tor -f torrc1
