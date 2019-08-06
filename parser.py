@@ -23,6 +23,15 @@ def check_captcha_google(driver):  # Проверяет не подсовыва�
         return True
 
 
+def choose_by(driver):  # выбирает by в настройках гугла
+    driver.find_element_by_xpath('.//a[text()="Настройки"]').click()
+    driver.find_element_by_xpath('.//a[text()="Настройки поиска"]').click()
+    driver.find_element_by_xpath('.//div[@id="regiontBY"]/div/span').click()
+    driver.find_element_by_xpath('.//div[text()="Сохранить"]').click()  # .send_keys (u '\ ue007')
+    time.sleep(1)
+    driver.switch_to_alert().accept()
+
+
 def check_captcha_yandex(driver):  # Проверяет не подсовывает ли yandex капчу
     if 'Ой!' in driver.title:
         return True
@@ -34,16 +43,16 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):  # Прове�
     if check_captcha_google(driver):  # Проверяем не подсовывает ли google капчу
         return None, None
     page = driver.find_element(By.XPATH, "//*[@id='search']")  # page = driver.find_element_by_id("search")
-    time.sleep(2)
+    time.sleep(1)
     results = page.find_elements(By.XPATH, ".//div[@class='g']")
     if len(results) < 7:
         time.sleep(8)
         results = page.find_elements(By.XPATH, ".//div[@class='g']")
     for i, result in enumerate(results):
-        links = result.find_elements(By.XPATH, ".//a").get_attribute('href')
+        links = result.find_elements(By.XPATH, ".//a")
         for link in links:
-            if req_i.site_promoted in link:
-                return namber + 1, link
+            if req_i.site_promoted in link.get_attribute('href'):
+                return namber + 1, link.get_attribute('href')
         else:
             namber += 1
     namber_page += 1
@@ -113,6 +122,10 @@ def run_scraper(ports, reqs, requests_google, requests_yandex):
             look.acquire()  # ставим блокировку на requests_google
             use_req_for_google = reqs[requests_google.pop()]  # берет последний id запроса в списке requests_google
             look.release()  # снимаем блокировку requests_google
+            choose_by(browser) # выбор в настройках гугл региона поиска
+            if check_captcha_google(browser):  # проверка на капчу
+                requests_google.append(use_req_for_google.id)  # возвращаем не обработаный запрос
+                break
             search_google(browser, use_req_for_google)
             flag_bad_proxy = True if use_req_for_google.position_google is None else False
             if flag_bad_proxy:  # если попалась капча поднимется флаг, переходим к яндексу
@@ -175,19 +188,6 @@ if __name__ == '__main__':
     print("time start {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
     ports = get_ports()  # получаем список портов
     pool_thread(ports, reqs, requests_google, requests_yandex)
-
-    # stream1 = threading.Thread(target=run_scraper, args=((9050, 9051), reqs, requests_google, requests_yandex))
-    # stream2 = threading.Thread(target=run_scraper, args=((9060, 9061), reqs, requests_google, requests_yandex))
-    # stream3 = threading.Thread(target=run_scraper, args=((9062, 9063), reqs, requests_google, requests_yandex))
-    # stream4 = threading.Thread(target=run_scraper, args=((9065, 9066), reqs, requests_google, requests_yandex))
-    # stream1.start()
-    # stream2.start()
-    # stream3.start()
-    # stream4.start()
-    # stream1.join()
-    # stream2.join()
-    # stream3.join()
-    # stream4.join()
     Req.create_json(reqs)
     time_now = datetime.now(tz=None)
     print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
