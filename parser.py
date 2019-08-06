@@ -97,6 +97,9 @@ def run_scraper(ports, reqs, requests_google, requests_yandex):
     def search_google(driver, use_req):  # Поиск в google
         try:
             driver.get('https://www.google.by')
+            choose_by(browser)  # выбор в настройках гугл региона поиска
+            if check_captcha_google(browser):  # проверка на капчу
+                return None, None
             page = driver.find_element(By.XPATH, ".//input[@title='Search' or @title='Поиск' or @title='Шукаць']")
             page.send_keys(use_req.value_req)
             page.send_keys(Keys.RETURN)
@@ -118,14 +121,13 @@ def run_scraper(ports, reqs, requests_google, requests_yandex):
     while True:
         browser = Browser(ports=ports)  # headless=False -- если необходим графический интерфейс браузера
         browser.implicitly_wait(8)
+        string = "\r Необработаных запросов yandex: {} google {} port {}" \
+                 "".format(len(requests_yandex), len(requests_google), browser.use_proxy_port)
+        print(string, end="")
         while requests_google:  # цикл работает если не все запросы в гугл выполнены
             look.acquire()  # ставим блокировку на requests_google
             use_req_for_google = reqs[requests_google.pop()]  # берет последний id запроса в списке requests_google
             look.release()  # снимаем блокировку requests_google
-            choose_by(browser) # выбор в настройках гугл региона поиска
-            if check_captcha_google(browser):  # проверка на капчу
-                requests_google.append(use_req_for_google.id)  # возвращаем не обработаный запрос
-                break
             search_google(browser, use_req_for_google)
             flag_bad_proxy = True if use_req_for_google.position_google is None else False
             if flag_bad_proxy:  # если попалась капча поднимется флаг, переходим к яндексу
