@@ -17,10 +17,12 @@ class Browser(webdriver.Firefox):
         profile.set_preference("intl.accept_languages", languages)
         profile.set_preference("network.cookie.cookieBehavior", 0)
         profile.update_preferences()
-        super().__init__(firefox_profile=profile, options=opts)
+        super().__init__(executable_path="/usr/local/bin/geckodriver", firefox_profile=profile, options=opts)  # executable_path="/usr/local/bin/geckodriver", firefox_binary="/opt/firefox/firefox-bin" ,
         self.use_proxy_port, self.control_proxy_port = ports
 
-    def restart_proxy(self):
-        with Controller.from_port(port= self.control_proxy_port) as controller:
+    @classmethod
+    def restart_proxy(cls, contrl_port):
+        with Controller.from_port(port=int(contrl_port)) as controller:
             controller.authenticate()
             controller.signal(Signal.NEWNYM)
+

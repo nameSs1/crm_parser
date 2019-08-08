@@ -1,21 +1,28 @@
-1. установка Selenium 
+Запуск парсера:
+
+1. Скачать последнюю версию Firefox
+    sudo apt  install firefox
+
+2. Скачать последнюю версию geckodriver для Firefox Selenium https://github.com/mozilla/geckodriver
+     2.2 распоковать и запомнить куда распоковал tar -xvzf geckodriver*
+     2.3 дать файлу geckodriver нужные права на выполнения sudo chmod +x geckodriver
+     2.4 переместить sudo mv geckodriver /usr/local/bin/
+
+3. Обновить Python3, pip3
+    sudo apt install python3-pip
+
+
+4. Установка Selenium
     pip3 install selenium
 
-2. установка драйвера geckodriver для Firefox Selenium 
-    2.1 скачать с гита  по ссылке:
-    https://github.com/mozilla/geckodriver/releases/download/v0.24.0/geckodriver-v0.24.0-linux64.tar.gz
-    2.2 распоковать и запомнить куда распоковал (/home/sergey/PycharmProjects/crm_parser)
-    2.3 дать файлу geckodriver нужные права на выполнения
-        cd /путь/до/драйвера/ (cd /home/sergey/PycharmProjects/crm_parser)
-        sudo chmod +x geckodriver
+5. Установить stem (для управлением сетями tor)
+    pip3 install stem
 
-3. для перезагрузки сети Tor, разрешить пользователю выполнять команду sudo service tor restart без запроса пароля:
-    sudo visudo (редактирование фала /etc/sudoers)
-    строку: имя_пользователя ALL=(ALL) ALL исправить на
-    имя_пользователя ALL=(ALL) NOPASSWD: /usr/sbin/service /usr/sbin/tor
+5. Установка сети tor
+    sudo apt-get install tor
 
 
-4. для запуска нескольких сетей tor одновременно.
+6. для запуска нескольких сетей tor одновременно.
     4.1 отредактрировать файл /etc/tor/torrc
         раскоментировать SocksPort 9050 -- используемый порт
                          CookieAuthentication поставить 0
@@ -25,4 +32,4 @@
     изменить порты и директорию для каждого экзепляра сделать уникальными
     4.3 для запуска зайти в /etc/tor  и выполнить sudo tor -f torrc1
 
-5. установка сети tor sudo apt-get install tor
+

@@ -4,7 +4,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium import common
 from req import Req
-from datetime import datetime
 from browser import Browser
 
 
@@ -63,7 +62,7 @@ def ran_pages_google(req_i, driver, namber = 0, namber_page = 0):  # Прове�
 
 
 def ran_pages_yandex(req_i, driver, namber = 0, namber_page = 0):  # Проверка сраницы с ответами яндекс
-    time.sleep(5)  # необходимо для полной прогрузки страницы, может найти не весь список результатов или капчу
+    time.sleep(3)  # необходимо для полной прогрузки страницы, может найти не весь список результатов или капчу
     results = driver.find_elements(By.XPATH, ".//li[@class='serp-item' and @data-cid]")  # получаем список результатов
     if len(results) == 0 and check_captcha_yandex(driver):  # проверка на капчу
         return None, None
@@ -96,69 +95,76 @@ def run_scraper(ports, reqs, requests_google, requests_yandex):
 
     def search_google(driver, use_req):  # Поиск в google
         try:
+            look.acquire()
             driver.get('https://www.google.by')
             choose_by(driver)  # выбор в настройках гугл региона поиска
             if check_captcha_google(driver):  # проверка на капчу
-                raise
+                return None, None
+            look.release()
             page = driver.find_element(By.XPATH, ".//input[@title='Search' or @title='Поиск' or @title='Шукаць']")
             page.send_keys(use_req.value_req)
             page.send_keys(Keys.RETURN)
             use_req.position_google, use_req.url_result_google = ran_pages_google(use_req, driver)
-        except:  # common.exceptions.NoSuchElementException
+        except common.exceptions.NoSuchElementException:
+            use_req.position_google, use_req.url_result_google = None, None
+        except:
             use_req.position_google, use_req.url_result_google = None, None
 
     def search_yandex(driver, use_req):  # Поиск в яндексе
         try:
+            look.acquire()
             driver.get('https://yandex.by')
+            look.release()
             page = driver.find_element(By.XPATH, ".//*[@id='text']")  # Поиск
             page.send_keys(use_req.value_req)
             page.send_keys(Keys.RETURN)
             use_req.position_yandex, use_req.url_result_yandex = ran_pages_yandex(use_req, driver)
-        except:  # common.exceptions.NoSuchElementException
+        except common.exceptions.NoSuchElementException:
             use_req.position_yandex, use_req.url_result_yandex = None, None
 
-    while any((requests_google, requests_yandex)):
-        with lock_rest:
-            browser = Browser(ports=ports)  # headless=False -- если необходим графический интерфейс браузера
-            browser.implicitly_wait(8)
-            string = "\r Необработаных запросов yandex: {} google {} port {}" \
-                     "".format(len(requests_yandex), len(requests_google), browser.use_proxy_port)
-            print(string, end="")
+    look = threading.RLock()
+    while True:
+        browser = Browser(ports=ports)  # headless=False -- если необходим графический интерфейс браузера
+        browser.implicitly_wait(8)
         while requests_google:  # цикл работает если не все запросы в гугл выполнены
-            with lock_g:
-                use_req_for_google = reqs[requests_google.pop()]  # берет последний id запроса в списке requests_google
+            look.acquire()  # ставим блокировку на requests_google
+            use_req_for_google = reqs[requests_google.pop()]  # берет последний id запроса в списке requests_google
+            look.release()  # снимаем блокировку requests_google
             search_google(browser, use_req_for_google)
             flag_bad_proxy = True if use_req_for_google.position_google is None else False
             if flag_bad_proxy:  # если попалась капча поднимется флаг, переходим к яндексу
                 requests_google.append(use_req_for_google.id)  # возвращаем не обработаный запрос
                 break
             else:  # если ответ получен, запишим результат и попробуем следующий запрос
-                with lock_w:
-                    req = reqs[use_req_for_google.id]
-                    try:
-                        req.combine(use_req_for_google)  # обьеденияем экзмляр Req со своим клоном
-                    except KeyError as err:
-                        print(err)
+                look.acquire()
+                req = reqs[use_req_for_google.id]
+                try:
+                    req.combine(use_req_for_google)  # обьеденияем экзмляр Req со своим клоном
+                except KeyError as err:
+                    pass
+                look.release()
         while requests_yandex:
-            with lock_y:
-                use_req_for_yandex = reqs[requests_yandex.pop()]
+            look.acquire()
+            use_req_for_yandex = reqs[requests_yandex.pop()]
+            look.release()
             search_yandex(browser, use_req_for_yandex)
             flag_bad_proxy = True if use_req_for_yandex.position_yandex is None else False
             if flag_bad_proxy:  # если попалась капча поднимется флаг, меняем ip и чистим куки
                 requests_yandex.append(use_req_for_yandex.id)  # возвращаем не обработаный запрос
                 break
             else:  # если ответ получен, запишим результат и попробуем следующий запрос
-                with lock_w:
-                    req = reqs[use_req_for_yandex.id]
-                    try:
-                        req.combine(use_req_for_yandex)  # обьеденияем экзмляр Req со своим клоном
-                    except KeyError as err:
-                        print(err)
-        with lock_rest:
-            browser.delete_all_cookies()  # чистим куки
-            browser.quit()
-            Browser.restart_proxy(ports[1])  # меняем ip
-
+                look.acquire()
+                req = reqs[use_req_for_yandex.id]
+                try:
+                    req.combine(use_req_for_yandex)  # обьеденияем экзмляр Req со своим клоном
+                except KeyError as err:
+                    pass
+                look.release()
+        browser.delete_all_cookies()  # чистим куки
+        browser.quit()
+        if not any((requests_google, requests_yandex)):  # если все запросы выполнены, то выходим
+            break
+        browser.restart_proxy()  # меняем ip
     return 'поток с поротоm {} закончил работу'.format(ports[0])
 
 
@@ -182,14 +188,6 @@ if __name__ == '__main__':
     requests_google = [req.id for req in reqs]  # список id не сделаных запросов гугл
     requests_google.reverse()  # переверням. теперь можно брать первые id с конца
     requests_yandex = requests_google.copy()  # список id не сделаный запросов в яндекс
-    time_now = datetime.now(tz=None)
-    print("time start {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
     ports = get_ports()  # получаем список портов
-    print(ports)
-    lock_w, lock_y, lock_g, lock_rest = threading.RLock(), threading.RLock(), threading.RLock(), threading.RLock()
     pool_thread(ports, reqs, requests_google, requests_yandex)
     Req.create_json(reqs)
-    time_now = datetime.now(tz=None)
-    print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
-    # for r in reqs:
-    #     print('id {} запрос "{}" позиция в гугле {} позиция в яндексе {}'.format(r.id, r.value_req, r.position_google, r.position_yandex))
