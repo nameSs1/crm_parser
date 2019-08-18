@@ -96,8 +96,9 @@ def run_scraper(ports, reqs, requests_google, requests_yandex):
 
     def search_google(driver, use_req):  # Поиск в google
         try:
-            driver.get('https://www.google.by')
-            choose_by(driver)  # выбор в настройках гугл региона поиска
+            with lock_g:
+                driver.get('https://www.google.by')
+                choose_by(driver)  # выбор в настройках гугл региона поиска
             if check_captcha_google(driver):  # проверка на капчу
                 raise
             page = driver.find_element(By.XPATH, ".//input[@title='Search' or @title='Поиск' or @title='Шукаць']")
@@ -191,5 +192,4 @@ if __name__ == '__main__':
     Req.create_json(reqs)
     time_now = datetime.now(tz=None)
     print("time finish {}:{}:{}".format(time_now.hour, time_now.minute, time_now.second))
-    # for r in reqs:
-    #     print('id {} запрос "{}" позиция в гугле {} позиция в яндексе {}'.format(r.id, r.value_req, r.position_google, r.position_yandex))
+
